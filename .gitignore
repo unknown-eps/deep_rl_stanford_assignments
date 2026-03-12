@@ -2,7 +2,8 @@ __pycache__/
 .vscode/
 
 # pixi
-.pixi/
-
+# pixi environments
+.pixi/*
+!.pixi/config.toml
 # uv / python virtual environments
 .venv/
