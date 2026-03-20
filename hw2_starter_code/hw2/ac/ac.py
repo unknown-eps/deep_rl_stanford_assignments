@@ -117,8 +117,21 @@ class ACAgent:
             batch, self.device)
 
         ### YOUR CODE HERE ###
-
-
+        self.critic_opt.zero_grad()
+        next_actions = self.actor.forward(next_obs).sample()
+        critic_target_outputs = self.critic_target.forward(next_obs,next_actions)
+        num_targets = len(critic_target_outputs)
+        temp_perm = np.random.permutation(num_targets)
+        first_idx,second_idx = temp_perm[0],temp_perm[1]
+        y_target = reward.view(-1, 1) + discount.view(-1, 1)*torch.minimum(critic_target_outputs[first_idx],critic_target_outputs[second_idx])
+        y_target = y_target.detach()
+        guess = torch.stack(self.critic.forward(obs,action),dim=0)
+        loss = (guess - y_target)**2
+        loss = loss.sum(dim=0).mean()
+        loss.backward()
+        self.critic_opt.step()
+        utils.soft_update_params(self.critic,self.critic_target,self.critic_target_tau)
+        metrics["loss"] = loss.item()
         #####################
         return metrics
 
@@ -151,8 +164,13 @@ class ACAgent:
             batch, self.device)
 
         ### YOUR CODE HERE ###
-
-
+        self.actor_opt.zero_grad()
+        guess_action  = self.actor.forward(obs).sample()
+        q_guess = self.critic(obs,guess_action)
+        loss = -torch.stack(q_guess).mean()
+        loss.backward()
+        self.actor_opt.step()
+        metrics["actor_loss"] = loss.item()
         return metrics
 
     def bc(self, replay_iter):
@@ -184,6 +202,10 @@ class ACAgent:
         obs, action, _, _, _ = utils.to_torch(batch, self.device)
 
         ### YOUR CODE HERE ###
-
-
+        self.actor_opt.zero_grad()
+        action_dist = self.actor.forward(obs)
+        loss = -action_dist.log_prob(action).sum(dim=1).mean()
+        loss.backward()
+        self.actor_opt.step()
+        metrics["loss"] = loss.item()
         return metrics
